@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: autonomous-ds
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ads-config
+  namespace: autonomous-ds
+data:
+  MINIO_ENDPOINT: "http://minio:9000"
+  MINIO_BUCKET: "ads-artifacts"
+  INGESTION_URL: "http://ingestion-svc:8000"
+  EDA_URL: "http://eda-svc:8000"
+  FEATURE_ENGINEERING_URL: "http://feature-engineering-svc:8000"
+  TRAINING_URL: "http://training-svc:8000"
+  EVALUATION_URL: "http://evaluation-svc:8000"
+  REPORTING_URL: "http://reporting-svc:8000"
+  ANTHROPIC_MODEL: "claude-sonnet-5"
+  REPORT_LLM_PROVIDER: "anthropic"   # or "huggingface"
+  HF_MODEL: "meta-llama/Meta-Llama-3-8B-Instruct"
+  HF_EMBEDDING_MODEL: "sentence-transformers/all-MiniLM-L6-v2"
+  TEXT_EMBEDDING_COMPONENTS: "16"
+---
+# Populate the secrets below before applying (anthropic-credentials only
+# needed if REPORT_LLM_PROVIDER=anthropic; hf-credentials only needed if
+# REPORT_LLM_PROVIDER=huggingface):
+#   kubectl create secret generic minio-credentials -n autonomous-ds \
+#     --from-literal=access-key=minioadmin --from-literal=secret-key=<CHANGE_ME>
+#   kubectl create secret generic anthropic-credentials -n autonomous-ds \
+#     --from-literal=api-key=<YOUR_ANTHROPIC_API_KEY>
+#   kubectl create secret generic hf-credentials -n autonomous-ds \
+#     --from-literal=api-token=<YOUR_HUGGING_FACE_TOKEN>
+# The manifests below reference these secret names directly.

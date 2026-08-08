@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: training
+  namespace: autonomous-ds
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: training }
+  template:
+    metadata:
+      labels: { app: training }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: training
+          image: REGISTRY/ads-training:latest   # set by scripts/deploy.sh
+          ports: [{ containerPort: 8000 }]
+          envFrom:
+            - configMapRef: { name: ads-config }
+          env:
+            - name: MINIO_ACCESS_KEY
+              valueFrom: { secretKeyRef: { name: minio-credentials, key: access-key } }
+            - name: MINIO_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: minio-credentials, key: secret-key } }
+          resources:
+            requests: { cpu: "250m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "1Gi" }
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: training-svc
+  namespace: autonomous-ds
+spec:
+  selector: { app: training }
+  ports: [{ port: 8000, targetPort: 8000 }]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: training-hpa
+  namespace: autonomous-ds
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: training
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 70 }

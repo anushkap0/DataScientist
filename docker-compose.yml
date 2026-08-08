@@ -1,0 +1,91 @@
+version: "3.9"
+
+x-common-env: &common-env
+  MINIO_ENDPOINT: http://minio:9000
+  MINIO_ACCESS_KEY: minioadmin
+  MINIO_SECRET_KEY: minioadmin
+  MINIO_BUCKET: ads-artifacts
+
+services:
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ingestion:
+    build: { context: ., dockerfile: services/ingestion/Dockerfile }
+    environment: *common-env
+    ports: ["8001:8000"]
+    depends_on: [minio]
+
+  eda:
+    build: { context: ., dockerfile: services/eda/Dockerfile }
+    environment: *common-env
+    ports: ["8002:8000"]
+    depends_on: [minio]
+
+  feature-engineering:
+    build: { context: ., dockerfile: services/feature_engineering/Dockerfile }
+    environment:
+      <<: *common-env
+      HF_EMBEDDING_MODEL: ${HF_EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      TEXT_EMBEDDING_COMPONENTS: ${TEXT_EMBEDDING_COMPONENTS:-16}
+    ports: ["8003:8000"]
+    depends_on: [minio]
+
+  training:
+    build: { context: ., dockerfile: services/training/Dockerfile }
+    environment: *common-env
+    ports: ["8004:8000"]
+    depends_on: [minio]
+
+  evaluation:
+    build: { context: ., dockerfile: services/evaluation/Dockerfile }
+    ports: ["8005:8000"]
+
+  reporting:
+    build: { context: ., dockerfile: services/reporting/Dockerfile }
+    environment:
+      <<: *common-env
+      REPORT_LLM_PROVIDER: ${REPORT_LLM_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-5}
+      HF_API_TOKEN: ${HF_API_TOKEN:-}
+      HF_MODEL: ${HF_MODEL:-meta-llama/Meta-Llama-3-8B-Instruct}
+    ports: ["8006:8000"]
+    depends_on: [minio]
+
+  orchestrator:
+    build: { context: ., dockerfile: services/orchestrator/Dockerfile }
+    environment:
+      <<: *common-env
+      INGESTION_URL: http://ingestion:8000
+      EDA_URL: http://eda:8000
+      FEATURE_ENGINEERING_URL: http://feature-engineering:8000
+      TRAINING_URL: http://training:8000
+      EVALUATION_URL: http://evaluation:8000
+      REPORTING_URL: http://reporting:8000
+    ports: ["8000:8000"]
+    depends_on: [minio, ingestion, eda, feature-engineering, training, evaluation, reporting]
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports: ["9090:9090"]
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on: [orchestrator]
+
+volumes:
+  minio-data:

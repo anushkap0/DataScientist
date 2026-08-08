@@ -1,0 +1,16 @@
+customer_id,tenure_months,monthly_charges,contract_type,support_tickets,churned
+1001,2,89.5,month-to-month,4,yes
+1002,34,56.2,two-year,0,no
+1003,12,72.1,one-year,1,no
+1004,1,95.0,month-to-month,6,yes
+1005,58,41.3,two-year,0,no
+1006,5,88.9,month-to-month,3,yes
+1007,22,60.4,one-year,1,no
+1008,3,91.2,month-to-month,5,yes
+1009,45,38.7,two-year,0,no
+1010,9,79.6,month-to-month,2,yes
+1011,67,44.1,two-year,0,no
+1012,15,68.3,one-year,1,no
+1013,2,93.4,month-to-month,4,yes
+1014,29,55.0,one-year,0,no
+1015,7,85.5,month-to-month,3,yes
